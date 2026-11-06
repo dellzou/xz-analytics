@@ -1,0 +1,14 @@
+# 统一用 LF，避免 Windows 上改完的脚本在 Linux 上执行报 bad interpreter
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.py   text eol=lf
+*.php  text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.js   text eol=lf
+*.md   text eol=lf
+
+# 二进制
+*.png  binary
+*.jpg  binary
