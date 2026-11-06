@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XiaoZou123 内容数据面板</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f6f8; --card:#fff; --line:#e5e7eb; --line2:#f0f1f3;
+  --tx:#16181d; --tx2:#5b616e; --tx3:#8b919d;
+  --blue:#2563eb; --teal:#0d9488; --amber:#d97706; --violet:#7c3aed;
+  --slate:#64748b; --pink:#db2777;
+}
+body{
+  background:var(--bg); color:var(--tx);
+  font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  padding:20px 20px 40px;
+}
+.wrap{max-width:1220px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:22px}
+h1{font-size:21px;font-weight:650;letter-spacing:-.01em}
+h1 span{color:var(--tx3);font-weight:400;font-size:14px;margin-left:10px;letter-spacing:0}
+.meta{font-size:12.5px;color:var(--tx3);text-align:right;line-height:1.7}
+.meta b{color:var(--tx2);font-weight:550}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px}
+.grid-kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:12px}
+.kpi{padding:16px 18px 15px}
+.kpi .lab{font-size:12px;color:var(--tx3);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.kpi .val{font-size:26px;font-weight:650;letter-spacing:-.02em;line-height:1.15}
+.kpi .sub{font-size:12px;color:var(--tx3);margin-top:5px}
+.kpi .sub i{font-style:normal;color:var(--tx2);font-weight:550}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex:none}
+
+.ledger{
+  display:flex;align-items:stretch;background:#fff;border:1px solid var(--line);
+  border-radius:10px;overflow:hidden;margin-bottom:14px;font-size:12.5px;
+}
+.ledger .cell{flex:1;padding:11px 14px;border-right:1px solid var(--line2)}
+.ledger .cell:last-child{border-right:0;background:#fbfcfe}
+.ledger .cell .k{color:var(--tx3);font-size:11.5px;margin-bottom:3px}
+.ledger .cell .v{font-size:16px;font-weight:620;letter-spacing:-.01em}
+.ledger .cell .p{color:#c26a6a;font-size:11px;margin-left:5px;font-weight:400}
+.ledger .cell.neg .v{color:#b45454}
+.ledger .cell.final .v{color:#1b7f5f}
+
+section{margin-top:14px}
+.shead{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:11px;flex-wrap:wrap}
+.shead h2{font-size:15px;font-weight:620}
+.shead h2 em{font-style:normal;color:var(--tx3);font-weight:400;font-size:12.5px;margin-left:8px}
+.seg{display:inline-flex;background:#eceef1;border-radius:7px;padding:2px;gap:2px}
+.seg button{
+  border:0;background:transparent;padding:4px 11px;border-radius:5px;font-size:12.5px;
+  color:var(--tx2);cursor:pointer;font-family:inherit;transition:.15s;
+}
+.seg button.on{background:#fff;color:var(--tx);font-weight:560;box-shadow:0 1px 2px rgba(0,0,0,.09)}
+
+.trendbox{padding:18px 20px 10px}
+.legend{display:flex;gap:18px;font-size:12px;color:var(--tx2);margin-bottom:12px;flex-wrap:wrap}
+
+.cols{display:grid;grid-template-columns:1.35fr 1fr;gap:12px}
+
+.catrow{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--line2);cursor:pointer;transition:background .12s}
+.catrow:last-child{border-bottom:0}
+.catrow:hover{background:#fafbfc}
+.catrow.on{background:#f2f6ff}
+.catrow .name{width:78px;font-size:13px;font-weight:550;flex:none;display:flex;align-items:center;gap:7px}
+.catrow .bar{flex:1;height:20px;background:#f3f4f6;border-radius:4px;overflow:hidden}
+.catrow .bar div{height:100%;border-radius:4px;transition:width .5s cubic-bezier(.2,.7,.3,1)}
+.catrow .n{width:58px;text-align:right;font-size:12.5px;color:var(--tx2);flex:none}
+.catrow .n b{color:var(--tx);font-weight:600}
+.catrow .cnt{width:44px;text-align:right;font-size:11.5px;color:var(--tx3);flex:none}
+
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.chip{
+  border:1px solid var(--line);background:#fff;border-radius:20px;padding:4px 12px;
+  font-size:12.5px;color:var(--tx2);cursor:pointer;font-family:inherit;transition:.14s;
+}
+.chip:hover{border-color:#cfd4dc}
+.chip.on{background:var(--tx);border-color:var(--tx);color:#fff}
+.search{
+  margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:8px;
+  padding:6px 11px;font-size:12.5px;font-family:inherit;width:190px;color:var(--tx);
+}
+.search:focus{outline:none;border-color:#9db4e8;box-shadow:0 0 0 3px #e8effd}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{
+  text-align:left;font-size:11.5px;font-weight:550;color:var(--tx3);letter-spacing:.02em;
+  padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:#fafbfc;
+}
+thead th.s{cursor:pointer;user-select:none}
+thead th.s:hover{color:var(--tx)}
+thead th.s.on{color:var(--blue)}
+thead th.s.on::after{content:" ↓";font-size:10px}
+thead th.s.on.asc::after{content:" ↑"}
+tbody td{padding:10px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tbody tr.r{cursor:pointer}
+tbody tr.r:hover{background:#f8f9fb}
+tbody tr.r.on{background:#f2f6ff}
+td.ti{max-width:390px}
+td.ti .t{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+td.r{text-align:right}
+.tag{font-size:11.5px;padding:2px 7px;border-radius:4px;white-space:nowrap;font-weight:500}
+.bar-mini{height:4px;background:#eef0f3;border-radius:2px;margin-top:4px;overflow:hidden}
+.bar-mini div{height:100%;border-radius:2px}
+.detail td{background:#fafbfc;padding:0;border-bottom:1px solid var(--line2)}
+.detail-in{padding:14px 16px 16px}
+.detail-in .row{display:flex;gap:26px;flex-wrap:wrap;font-size:12px;color:var(--tx2);margin-bottom:12px}
+.detail-in .row b{color:var(--tx);font-weight:600}
+
+.two{padding:16px 18px}
+.two h3{font-size:12px;color:var(--tx3);font-weight:550;margin-bottom:11px;letter-spacing:.02em}
+.mini-row{display:flex;align-items:center;gap:9px;margin-bottom:8px;font-size:12.5px}
+.mini-row .k{width:80px;color:var(--tx2);flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-row .b{flex:1;height:7px;background:#f0f2f5;border-radius:4px;overflow:hidden}
+.mini-row .b div{height:100%;background:var(--blue);border-radius:4px;opacity:.75}
+.mini-row .v{width:52px;text-align:right;color:var(--tx3);font-size:11.5px;flex:none}
+
+.ins li{
+  list-style:none;display:flex;gap:11px;padding:13px 18px;border-bottom:1px solid var(--line2);
+  font-size:13px;line-height:1.65;color:var(--tx2);
+}
+.ins li:last-child{border-bottom:0}
+.ins li .i{
+  flex:none;width:17px;height:17px;border-radius:50%;background:#eef2ff;color:var(--blue);
+  font-size:10.5px;font-weight:650;display:grid;place-items:center;margin-top:2px;
+}
+.ins li b{color:var(--tx);font-weight:600}
+
+footer{margin-top:22px;font-size:11.5px;color:var(--tx3);line-height:1.9;padding-top:16px;border-top:1px solid var(--line)}
+footer b{color:var(--tx2);font-weight:550}
+footer code{background:#eceef1;padding:1px 5px;border-radius:3px;font-size:11px}
+.empty{padding:34px;text-align:center;color:var(--tx3);font-size:13px}
+
+@media(max-width:1000px){
+  .grid-kpi{grid-template-columns:repeat(2,1fr)}
+  .cols{grid-template-columns:1fr}
+  td.ti{max-width:180px}
+  .ledger{flex-wrap:wrap}
+  .ledger .cell{min-width:45%}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div><h1>XiaoZou123 内容数据面板<span>哪些文章、哪些类型真的有人在读</span></h1></div>
+  <div class="meta" id="hmeta"></div>
+</header>
+
+<div class="grid-kpi" id="kpi"></div>
+<div class="ledger" id="ledger"></div>
+
+<section>
+  <div class="card trendbox">
+    <div class="shead" style="margin-bottom:14px">
+      <h2>月度走势<em>文章页真实阅读量</em></h2>
+      <div class="seg" id="trendSeg">
+        <button data-k="pv" class="on">浏览量 PV</button>
+        <button data-k="uv">访客 UV</button>
+      </div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div id="trend"></div>
+  </div>
+</section>
+
+<section class="cols">
+  <div class="card">
+    <div class="shead" style="padding:15px 18px 12px;margin:0;border-bottom:1px solid var(--line2)">
+      <h2>内容类型表现<em>点击筛选下方排行</em></h2>
+      <div class="seg" id="catSeg">
+        <button data-k="avg_pv" class="on">篇均 PV</button>
+        <button data-k="median_pv">中位数</button>
+        <button data-k="recent30">近 30 天</button>
+      </div>
+    </div>
+    <div id="cats"></div>
+  </div>
+
+  <div class="card">
+    <div class="two">
+      <h3>读者从哪里来</h3>
+      <div id="refs"></div>
+      <h3 style="margin-top:18px">用什么设备读</h3>
+      <div id="devs"></div>
+    </div>
+  </div>
+</section>
+
+<section class="card" style="padding:16px 18px 6px">
+  <div class="shead"><h2>文章排行<em id="cnt-txt"></em></h2></div>
+  <div class="toolbar" id="chips"></div>
+  <div style="overflow-x:auto">
+    <table><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+  </div>
+</section>
+
+<section class="card">
+  <div class="shead" style="padding:15px 18px 0"><h2>这份数据说明了什么</h2></div>
+  <ul class="ins" id="ins"></ul>
+</section>
+
+<footer id="foot"></footer>
+
+</div>
+
+<script id="DATA" type="application/json">__DATA__</script>
+<script>
+const D = JSON.parse(document.getElementById('DATA').textContent);
+const M = D.meta;
+const CAT_COLOR = {
+  '技术实践':'#2563eb','数码推荐':'#0d9488','数码拆解':'#d97706',
+  '个人动态':'#7c3aed','理论学习':'#64748b','数码新闻':'#db2777'
+};
+const fmt = n => (n||0).toLocaleString('en-US');
+const catColor = c => CAT_COLOR[c] || '#64748b';
+const pct = (a,b) => b ? (a/b*100) : 0;
+
+document.getElementById('hmeta').innerHTML =
+  `数据区间 <b>${M.range[0]} → ${M.range[1]}</b>　·　覆盖 <b>${M.days}</b> 天<br>` +
+  `生成于 ${M.generated_at}　·　来源 Nginx 访问日志`;
+
+/* KPI */
+const removedTotal = M.human_article_pv - M.post_pv;
+document.getElementById('kpi').innerHTML = [
+  {lab:'有效文章阅读', val:fmt(M.post_pv), sub:`日均 <i>${Math.round(M.post_pv/M.days)}</i> 次`, color:'#2563eb'},
+  {lab:'独立访客', val:fmt(M.site_uv), sub:`人均 <i>${(M.total_pv/M.site_uv).toFixed(2)}</i> 次访问`, color:'#0d9488'},
+  {lab:'全站浏览', val:fmt(M.total_pv), sub:`文章页占 <i>${pct(M.post_pv,M.total_pv).toFixed(0)}%</i>`, color:'#d97706'},
+  {lab:'有阅读的文章', val:M.active_posts, sub:`共发布 <i>${M.post_total}</i> 篇`, color:'#7c3aed'},
+  {lab:'已剔除异常流量', val:fmt(removedTotal), sub:`占原始 <i>${pct(removedTotal,M.human_article_pv).toFixed(0)}%</i>`, color:'#db2777'}
+].map(k=>`
+  <div class="card kpi">
+    <div class="lab"><span class="dot" style="background:${k.color}"></span>${k.lab}</div>
+    <div class="val num">${k.val}</div>
+    <div class="sub">${k.sub}</div>
+  </div>`).join('');
+
+/* 清洗账本 */
+document.getElementById('ledger').innerHTML = [
+  {k:'真人 UA 的文章请求', v:M.human_article_pv},
+  {k:'− 扫描器 IP', v:M.removed_dirty, cls:'neg', p:pct(M.removed_dirty,M.human_article_pv)},
+  {k:'− 刷量日', v:M.removed_burst, cls:'neg', p:pct(M.removed_burst,M.human_article_pv)},
+  {k:'− 高频重复', v:M.rate_capped, cls:'neg', p:pct(M.rate_capped,M.human_article_pv)},
+  {k:'= 有效阅读', v:M.post_pv, cls:'final'}
+].map(c=>`
+  <div class="cell ${c.cls||''}">
+    <div class="k">${c.k}</div>
+    <div class="v num">${fmt(c.v)}${c.p!==undefined?`<span class="p">${c.p.toFixed(0)}%</span>`:''}</div>
+  </div>`).join('');
+
+/* 趋势 */
+let trendKey = 'pv';
+function drawTrend(){
+  const data = D.months, key = trendKey;
+  const W=900,H=300,P={l:48,r:52,t:18,b:34};
+  const iw=W-P.l-P.r, ih=H-P.t-P.b;
+  const rawMax = Math.max(...data.map(d=>d[key])) * 1.08 || 1;
+  function niceStep(v){
+    const exp=Math.pow(10,Math.floor(Math.log10(v))), f=v/exp;
+    const ladder=[1,1.5,2,2.5,3,4,5,6,8,10];
+    const n=ladder.find(s=>f<=s)||10;
+    return n*exp;
+  }
+  const tickStep = niceStep(rawMax/4), max = tickStep*4;
+  const step = iw/data.length, bw = Math.min(step*0.5,46);
+  const x = i => P.l + step*i + step/2;
+  const y = v => P.t + ih - (v/max)*ih;
+
+  let g='';
+  for(let i=0;i<=4;i++){
+    const v=tickStep*i, yy=y(v);
+    g += `<line x1="${P.l}" y1="${yy}" x2="${W-P.r}" y2="${yy}" stroke="#eef0f3"/>`;
+    g += `<text x="${P.l-10}" y="${yy+4}" text-anchor="end" font-size="10.5" fill="#9aa0ab">${fmt(v)}</text>`;
+  }
+  let bars='';
+  data.forEach((d,i)=>{
+    const h = ih-(y(d[key])-P.t);
+    bars += `<rect x="${x(i)-bw/2}" y="${y(d[key])}" width="${bw}" height="${Math.max(h,1)}" rx="3" fill="url(#gbar)"/>`;
+    bars += `<text x="${x(i)}" y="${H-P.b+18}" text-anchor="middle" font-size="10.5" fill="#8b919d">${d.m.slice(2)}</text>`;
+    const v=d[key];
+    bars += `<text x="${x(i)}" y="${y(v)-6}" text-anchor="middle" font-size="10" fill="#6b7280">${v>=10000?(v/1000).toFixed(0)+'k':v>=1000?(v/1000).toFixed(1)+'k':v}</text>`;
+  });
+  const vals = data.map(d=>d[key]), total = vals.reduce((a,b)=>a+b,0), peak = Math.max(...vals);
+  document.getElementById('trend').innerHTML =
+  `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+    <defs><linearGradient id="gbar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4f7cf0"/><stop offset="100%" stop-color="#93b0f7"/>
+    </linearGradient></defs>${g}${bars}</svg>`;
+  document.getElementById('legend').innerHTML =
+    `<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:linear-gradient(#4f7cf0,#93b0f7);margin-right:6px"></i>月度${key==='pv'?'浏览量':'访客数'}</span>
+     <span style="color:#8b919d">合计 ${fmt(total)}　·　峰值 ${fmt(peak)}（${data[vals.indexOf(peak)].m}）</span>`;
+}
+document.getElementById('trendSeg').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on', x===b));
+  trendKey=b.dataset.k; drawTrend();
+});
+drawTrend();
+
+/* 分类 */
+let catKey='avg_pv', activeCat=null;
+function drawCats(){
+  const list=[...D.categories].sort((a,b)=>b[catKey]-a[catKey]);
+  const max=Math.max(...list.map(c=>c[catKey]))||1;
+  document.getElementById('cats').innerHTML = list.map(c=>`
+    <div class="catrow ${activeCat===c.cat?'on':''}" data-cat="${c.cat}">
+      <div class="name"><span class="dot" style="background:${catColor(c.cat)}"></span>${c.cat}</div>
+      <div class="bar"><div style="width:${c[catKey]/max*100}%;background:${catColor(c.cat)};opacity:.85"></div></div>
+      <div class="n num"><b>${catKey==='avg_pv'?c.avg_pv.toFixed(1):fmt(c[catKey])}</b></div>
+      <div class="cnt num">${c.n} 篇</div>
+    </div>`).join('');
+  document.querySelectorAll('.catrow').forEach(el=>{
+    el.onclick=()=>{ activeCat = activeCat===el.dataset.cat?null:el.dataset.cat; drawCats(); renderChips(); renderTable(); };
+  });
+}
+document.getElementById('catSeg').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on', x===b));
+  catKey=b.dataset.k; drawCats();
+});
+drawCats();
+
+/* 来源/设备 */
+function miniBars(el, arr, color){
+  const max=Math.max(...arr.map(a=>a[1]))||1, tot=arr.reduce((s,a)=>s+a[1],0);
+  el.innerHTML = arr.map(([k,v])=>`
+    <div class="mini-row">
+      <span class="k" title="${k}">${k}</span>
+      <span class="b"><div style="width:${v/max*100}%;background:${color}"></div></span>
+      <span class="v num">${pct(v,tot).toFixed(0)}%</span>
+    </div>`).join('');
+}
+miniBars(document.getElementById('refs'), D.refs.slice(0,7), '#2563eb');
+miniBars(document.getElementById('devs'), D.devices.slice(0,6), '#0d9488');
+
+/* 表格 */
+let sortKey='pv', sortAsc=false, query='', openSlug=null;
+const COLS=[
+  {k:'idx',t:'#',w:'38px'},
+  {k:'title',t:'文章',w:''},
+  {k:'cat',t:'类型',w:'82px'},
+  {k:'date',t:'发布',w:'92px'},
+  {k:'pv',t:'PV',w:'64px',s:1},
+  {k:'uv',t:'UV',w:'64px',s:1},
+  {k:'velocity',t:'日均',w:'58px',s:1},
+  {k:'first30',t:'首月',w:'58px',s:1},
+  {k:'recent30',t:'近30天',w:'68px',s:1}
+];
+function renderChips(){
+  const chips=document.getElementById('chips');
+  chips.innerHTML =
+    `<button class="chip ${activeCat===null?'on':''}" data-cat="">全部类型</button>` +
+    D.categories.map(c=>`<button class="chip ${activeCat===c.cat?'on':''}" data-cat="${c.cat}">
+      <span class="dot" style="background:${catColor(c.cat)};margin-right:5px"></span>${c.cat}</button>`).join('') +
+    `<input class="search" placeholder="搜标题 / slug" value="${query}">`;
+  chips.querySelectorAll('.chip').forEach(b=>{
+    b.onclick=()=>{ activeCat=b.dataset.cat||null; drawCats(); renderChips(); renderTable(); };
+  });
+  chips.querySelector('.search').oninput = e => { query=e.target.value.trim().toLowerCase(); renderTable(); };
+}
+function renderHead(){
+  document.getElementById('thead').innerHTML='<tr>'+COLS.map(c=>{
+    const cls=[c.s?'s':'',sortKey===c.k?'on':'',(sortKey===c.k&&sortAsc)?'asc':''].join(' ');
+    return `<th class="${cls}" ${c.s?`data-k="${c.k}"`:''} style="${c.w?`width:${c.w}`:''}">${c.t}</th>`;
+  }).join('')+'</tr>';
+  document.querySelectorAll('#thead th.s').forEach(th=>{
+    th.onclick=()=>{
+      const k=th.dataset.k;
+      if(sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=false; }
+      renderHead(); renderTable();
+    };
+  });
+}
+function sparkline(p,w=520,h=54){
+  const months=D.months.map(m=>m.m);
+  const max=Math.max(...months.map(m=>p.monthly[m]||0))||1;
+  const step=w/months.length;
+  const pts=months.map((m,i)=>{
+    const v=p.monthly[m]||0;
+    return [i*step+step/2, h-4-(v/max)*(h-12), v];
+  });
+  const d=pts.map((pt,i)=>`${i?'L':'M'}${pt[0].toFixed(1)},${pt[1].toFixed(1)}`).join(' ');
+  const area=d+` L${pts[pts.length-1][0].toFixed(1)},${h} L${pts[0][0].toFixed(1)},${h} Z`;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:${w}px;height:${h}px;display:block">
+    <path d="${area}" fill="${catColor(p.cat)}" opacity=".08"/>
+    <path d="${d}" fill="none" stroke="${catColor(p.cat)}" stroke-width="1.6" stroke-linejoin="round"/>
+    ${pts.map(pt=>pt[2]>0?`<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="2.4" fill="${catColor(p.cat)}"/>`:'').join('')}
+  </svg>`;
+}
+function renderTable(){
+  let rows=D.posts.filter(p=>{
+    if(activeCat && p.cat!==activeCat) return false;
+    if(query && !(p.title.toLowerCase().includes(query)||p.slug.includes(query))) return false;
+    return true;
+  });
+  rows=[...rows].sort((a,b)=>{
+    const x=a[sortKey], y=b[sortKey];
+    if(typeof x==='string') return sortAsc?x.localeCompare(y):y.localeCompare(x);
+    return sortAsc?x-y:y-x;
+  });
+  const maxPV=Math.max(...D.posts.map(p=>p.pv))||1;
+  document.getElementById('cnt-txt').textContent =
+    `${rows.length} 篇${activeCat?` · ${activeCat}`:''}${query?` · 「${query}」`:''}`;
+  const tb=document.getElementById('tbody');
+  if(!rows.length){ tb.innerHTML=`<tr><td colspan="9" class="empty">没有匹配的文章</td></tr>`; return; }
+  tb.innerHTML=rows.map((p,i)=>{
+    const isOpen=openSlug===p.slug;
+    const ratio=p.uv?p.pv/p.uv:0;
+    const young=p.online<60;
+    let html=`<tr class="r ${isOpen?'on':''}" data-slug="${p.slug}">
+      <td class="num" style="color:#b6bac2;font-size:12px">${i+1}</td>
+      <td class="ti">
+        <span class="t" title="${p.title.replace(/"/g,'&quot;')}">${p.title}</span>
+      </td>
+      <td><span class="tag" style="background:${catColor(p.cat)}14;color:${catColor(p.cat)}">${p.cat}</span></td>
+      <td class="num" style="font-size:11.5px;color:#8b919d;white-space:nowrap">${p.date}</td>
+      <td class="r num" style="font-weight:600">${fmt(p.pv)}</td>
+      <td class="r num" style="color:#5b616e">${fmt(p.uv)}</td>
+      <td class="r num" style="color:#8b919d">${p.velocity}</td>
+      <td class="r num" style="color:#8b919d">${p.first30||'-'}</td>
+      <td class="r num" style="color:${p.recent30>0?'#2563eb':'#c2c6ce'};font-weight:${p.recent30>100?600:400}">${p.recent30||'-'}</td>
+    </tr>`;
+    if(isOpen){
+      const tail = young
+        ? '<span style="color:#9aa0ab">发布不足 60 天，长尾指标暂不适用</span>'
+        : `近 30 天占全部阅读的 <b>${(p.longtail*100).toFixed(0)}%</b>`;
+      html+=`<tr class="detail"><td colspan="9"><div class="detail-in">
+        <div class="row">
+          <span>发布 <b>${p.date}</b></span>
+          <span>在线 <b>${p.online}</b> 天</span>
+          <span>人均阅读 <b>${ratio.toFixed(2)}</b> 页</span>
+          <span>首次访问 <b>${p.first||'无'}</b></span>
+          <span>最近访问 <b>${p.last||'无'}</b></span>
+          <span>首月 PV <b>${p.first30}</b>（占 ${pct(p.first30,p.pv).toFixed(0)}%）</span>
+        </div>
+        <div style="font-size:11.5px;color:#8b919d;margin-bottom:5px">
+          月度走势（${D.months[0].m} → ${D.months[D.months.length-1].m}）　·　${tail}
+        </div>
+        ${sparkline(p)}
+        <div style="font-size:11.5px;margin-top:6px">
+          <a href="https://xiaozou123.cn/${p.slug}/" target="_blank" rel="noopener"
+             style="color:#2563eb;text-decoration:none">打开原文 ↗</a>
+        </div>
+      </div></td></tr>`;
+    }
+    return html;
+  }).join('');
+  tb.querySelectorAll('tr.r').forEach(tr=>{
+    tr.onclick=()=>{ const s=tr.dataset.slug; openSlug=openSlug===s?null:s; renderTable(); };
+  });
+}
+renderChips(); renderHead(); renderTable();
+
+/* 洞察 */
+(function(){
+  const cats=[...D.categories].sort((a,b)=>b.avg_pv-a.avg_pv);
+  const best=cats[0], worst=cats[cats.length-1];
+  const top3=D.posts.slice(0,3);
+  const top3pv=top3.reduce((s,p)=>s+p.pv,0);
+  const refTot=D.refs.reduce((s,r)=>s+r[1],0);
+  const get=n=>(D.refs.find(r=>r[0]===n)||[n,0])[1];
+  const bing=get('Bing'), baidu=get('百度');
+  const direct=get('直接访问'), inner=get('站内跳转');
+  const ext=Math.max(refTot-direct-inner,1);
+  const short=t=>{let s=t.slice(0,15); if(/[（(《【]$/.test(s)) s=s.slice(0,-1); return s+(t.length>15?'…':'');};
+  const dead=D.posts.filter(p=>p.pv<10 && p.online>60);
+  const cats30=[...D.categories].sort((a,b)=>b.recent30-a.recent30);
+  const mobile=(D.devices.find(d=>d[0]==='手机')||['',0])[1];
+  const win=(D.devices.find(d=>d[0]==='Windows')||['',0])[1];
+  const dy=(D.categories.find(c=>c.cat==='个人动态')||{recent30:0,pv:1});
+  const home=(M.kinds&&M.kinds.home)||0;
+
+  document.getElementById('ins').innerHTML=[
+    `<b>${best.cat}</b> 是最能打的内容类型：${best.n} 篇贡献 ${fmt(best.pv)} 次阅读，篇均 <b>${best.avg_pv.toFixed(0)}</b>，是 <b>${worst.cat}</b>（篇均 ${worst.avg_pv.toFixed(0)}）的 <b>${(best.avg_pv/worst.avg_pv).toFixed(1)} 倍</b>。拆机型内容单篇成本高，但带来的读者最多。`,
+    `流量高度集中：前 3 篇吃掉全部阅读的 <b>${pct(top3pv,M.post_pv).toFixed(0)}%</b>——${top3.map(p=>`《${short(p.title)}》`).join('、')}。头部文章一旦排名下滑，整站数据会立刻塌，需要培养第二梯队。`,
+    `外部来源里 <b>Bing 占了 ${pct(bing,ext).toFixed(0)}%</b>（${fmt(bing)} 次），Google ${fmt(get('Google'))} 次；<b>百度只有 ${baidu} 次</b>，相当于没有。国内读者在百度搜不到你，这是目前最大的流量缺口。`,
+    `有 <b>${dead.length}</b> 篇发布超过 60 天、累计阅读仍不足 10 次。这批内容占用发布精力却不带访客，适合合并、重写或做内链导流。`,
+    `近 30 天还在持续进人的是 <b>${cats30[0].cat}</b>（${cats30[0].recent30} 次）。<b>个人动态</b>则是另一回事：累计 ${fmt(dy.pv)} 次里，近 30 天占了 ${dy.recent30} 次，流量几乎都集中在刚发布那几天，老文很少再被翻出来。`,
+    `读者 <b>${pct(win,M.post_pv).toFixed(0)}%</b> 来自 Windows、<b>${pct(mobile,M.post_pv).toFixed(0)}%</b> 来自手机。首页另有 <b>${fmt(home)}</b> 次浏览，与文章阅读量 ${fmt(M.post_pv)} 次基本持平——首页是主要落地页，从首页进到内文的引导值得再优化。`
+  ].map((t,i)=>`<li><span class="i">${i+1}</span><span>${t}</span></li>`).join('');
+})();
+
+/* 脚注 */
+document.getElementById('foot').innerHTML = `
+  <b>数据口径</b>　解析 ${fmt(M.log_lines)} 行 Nginx 访问日志（${M.range[0]} 至 ${M.range[1]}），只统计 HTTP 200 的页面请求。<br>
+  <b>四层清洗</b>　① 机器人 UA：剔除 ${fmt(M.removed_bot)} 次已知爬虫（Bingbot、Googlebot、AhrefsBot、ClaudeBot 等，含伪装成 iPhone 的采集器）；
+  ② 扫描器 IP：${fmt(M.dirty_ips)} 个 IP 在日志期内访问过 <code>wp-login.php</code>／<code>xmlrpc.php</code>／<code>wp-admin</code>，判定为爆破或采集程序，其文章请求全部不计；
+  ③ 刷量日：某文单日 PV 超该文日均 8 倍，且呈现"人均 1 次、几乎无 referer"特征的，整日不计（共 ${D.burst.length} 组 ${fmt(M.removed_burst)} 次）；
+  ④ 高频重复：同一 IP 单日阅读超过 ${M.daily_cap} 次的部分不计。<br>
+  <b>指标定义</b>　PV = 页面浏览次数；UV = 按 IP 去重的独立访客（同一出口 NAT 下的多人会被算成一个，UV 偏低）；
+  首月 = 发布后 30 天内 PV；近 30 天 = 截至 ${M.range[1]} 往前 30 天。<br>
+  <b>已知局限</b>　日志无法区分"同一 IP 的不同人"，也没有停留时长和会话深度。数据由服务器定时任务每日生成；需要立即刷新时，在服务器执行 <code>bin/refresh.sh</code>。`;
+</script>
+</body>
+</html>

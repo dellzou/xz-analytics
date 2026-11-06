@@ -1,0 +1,13 @@
+# 调试产物
+_dash*.png
+_panel*.png
+_login.php
+_authtest.php
+
+# Python
+__pycache__/
+*.py[cod]
+
+# 系统
+.DS_Store
+Thumbs.db
