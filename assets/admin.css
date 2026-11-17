@@ -50,24 +50,22 @@
 .xz-kpi__value.is-text { font-size: 17px; letter-spacing: 0; }
 .xz-kpi__sub { font-size: 11px; color: #8c8f94; margin-top: 3px; }
 
-/* 迷你走势 */
+/* 迷你走势：柱区与标签区分成两行，标签再高也挤不到柱子 */
 .xz-spark {
-	display: flex;
-	align-items: flex-end;
+	display: grid;
 	gap: 4px;
-	height: 76px;
-	padding: 10px 12px 0;
+	padding: 10px 12px 4px;
+	/* grid-template-columns 由行内 style 按月份数量提供 */
 }
 .xz-spark__col {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	justify-content: flex-end;
-	height: 100%;
-	position: relative;
+	display: grid;
+	grid-template-rows: 54px 14px; /* 柱区固定 / 标签区固定 */
+	align-items: end;
+	min-width: 0;
 }
 .xz-spark__bar {
 	width: 100%;
+	align-self: end;
 	background: linear-gradient(#4f7cf0, #93b0f7);
 	border-radius: 2px 2px 0 0;
 	transition: opacity .15s;
@@ -76,12 +74,19 @@
 .xz-spark__col:hover .xz-spark__bar { opacity: .72; }
 .xz-spark__x {
 	display: block;
-	text-align: center;
 	font-size: 9px;
+	line-height: 14px;
+	text-align: center;
 	color: #a7aaad;
-	margin-top: 3px;
-	margin-bottom: 4px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: clip;
 	font-variant-numeric: tabular-nums;
+}
+
+/* 列太窄时标签再收一点，宁可裁掉也不许换行 */
+@media (max-width: 1100px) {
+	.xz-spark__x { font-size: 8px; letter-spacing: -.2px; }
 }
 
 .xz-widget__foot {

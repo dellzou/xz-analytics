@@ -151,7 +151,8 @@ function xz_analytics_dashboard_widget()
             }, $months);
             $peak = max(1, max($vals));
             ?>
-            <div class="xz-spark" role="img" aria-label="近 12 个月文章阅读量走势">
+            <div class="xz-spark" role="img" aria-label="近 12 个月文章阅读量走势"
+                 style="grid-template-columns:repeat(<?php echo count($months); ?>,1fr)">
                 <?php foreach ($months as $i => $m) : ?>
                     <?php $h = max(3, (int) round($vals[$i] / $peak * 100)); ?>
                     <div class="xz-spark__col" title="<?php echo esc_attr($m['m'] . '：' . number_format($vals[$i]) . ' 次'); ?>">
@@ -159,8 +160,9 @@ function xz_analytics_dashboard_widget()
                         <?php
                         $n = count($months);
                         $show_label = ($i === 0 || $i === $n - 1 || $i % 3 === 0);
+                        // 只显示 25-12 这种短格式，完整年月在 title 和上方区间里
                         ?>
-                        <span class="xz-spark__x"><?php echo $show_label ? esc_html($m['m']) : '&nbsp;'; ?></span>
+                        <span class="xz-spark__x"><?php echo $show_label ? esc_html(substr($m['m'], 2)) : ''; ?></span>
                     </div>
                 <?php endforeach; ?>
             </div>
