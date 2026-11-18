@@ -112,6 +112,20 @@ td.r{text-align:right}
 .detail-in .row{display:flex;gap:26px;flex-wrap:wrap;font-size:12px;color:var(--tx2);margin-bottom:12px}
 .detail-in .row b{color:var(--tx);font-weight:600}
 
+/* 分页 */
+.pager{display:none;align-items:center;gap:5px;flex-wrap:wrap;padding:12px 0 14px}
+.pager.is-on{display:flex}
+.pager .pinfo{font-size:12px;color:var(--tx3);margin-right:4px;font-variant-numeric:tabular-nums}
+.pager button{
+  min-width:30px;height:28px;padding:0 9px;border:1px solid var(--line);background:#fff;
+  color:var(--tx2);font-size:12.5px;border-radius:6px;cursor:pointer;font-family:inherit;
+  font-variant-numeric:tabular-nums;transition:background .12s,border-color .12s,color .12s;
+}
+.pager button:hover:not(:disabled):not(.on){background:#f7f8fa;border-color:#d4d8df;color:var(--tx)}
+.pager button.on{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600;cursor:default}
+.pager button:disabled{opacity:.38;cursor:not-allowed}
+.pager .gap{color:#b6bac2;font-size:12px;padding:0 1px;user-select:none}
+
 .two{padding:16px 18px}
 .two h3{font-size:12px;color:var(--tx3);font-weight:550;margin-bottom:11px;letter-spacing:.02em}
 .mini-row{display:flex;align-items:center;gap:9px;margin-bottom:8px;font-size:12.5px}
@@ -212,6 +226,7 @@ footer code{background:#eceef1;padding:1px 5px;border-radius:3px;font-size:11px}
   <div style="overflow-x:auto">
     <table><thead id="thead"></thead><tbody id="tbody"></tbody></table>
   </div>
+  <div class="pager" id="pager"></div>
 </section>
 
 <section class="card">
@@ -332,7 +347,7 @@ function drawCats(){
       <div class="cnt num">${c.n} 篇</div>
     </div>`).join('');
   document.querySelectorAll('.catrow').forEach(el=>{
-    el.onclick=()=>{ activeCat = activeCat===el.dataset.cat?null:el.dataset.cat; drawCats(); renderChips(); renderTable(); };
+    el.onclick=()=>{ activeCat = activeCat===el.dataset.cat?null:el.dataset.cat; curPage=1; drawCats(); renderChips(); renderTable(); };
   });
 }
 document.getElementById('catSeg').addEventListener('click', e=>{
@@ -357,6 +372,8 @@ miniBars(document.getElementById('devs'), D.devices.slice(0,6), '#0d9488');
 
 /* 表格 */
 let sortKey='pv', sortAsc=false, query='', openSlug=null;
+const PAGE_SIZE=20;
+let curPage=1;
 const COLS=[
   {k:'idx',t:'#',w:'38px'},
   {k:'title',t:'文章',w:''},
@@ -376,9 +393,9 @@ function renderChips(){
       <span class="dot" style="background:${catColor(c.cat)};margin-right:5px"></span>${c.cat}</button>`).join('') +
     `<input class="search" placeholder="搜标题 / slug" value="${query}">`;
   chips.querySelectorAll('.chip').forEach(b=>{
-    b.onclick=()=>{ activeCat=b.dataset.cat||null; drawCats(); renderChips(); renderTable(); };
+    b.onclick=()=>{ activeCat=b.dataset.cat||null; curPage=1; drawCats(); renderChips(); renderTable(); };
   });
-  chips.querySelector('.search').oninput = e => { query=e.target.value.trim().toLowerCase(); renderTable(); };
+  chips.querySelector('.search').oninput = e => { query=e.target.value.trim().toLowerCase(); curPage=1; renderTable(); };
 }
 function renderHead(){
   document.getElementById('thead').innerHTML='<tr>'+COLS.map(c=>{
@@ -389,6 +406,7 @@ function renderHead(){
     th.onclick=()=>{
       const k=th.dataset.k;
       if(sortKey===k) sortAsc=!sortAsc; else { sortKey=k; sortAsc=false; }
+      curPage=1;
       renderHead(); renderTable();
     };
   });
@@ -409,6 +427,40 @@ function sparkline(p,w=520,h=54){
     ${pts.map(pt=>pt[2]>0?`<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="2.4" fill="${catColor(p.cat)}"/>`:'').join('')}
   </svg>`;
 }
+/* 分页：页数多于 1 时才显示 */
+function renderPager(total,pages){
+  const el=document.getElementById('pager');
+  if(pages<=1){ el.classList.remove('is-on'); el.innerHTML=''; return; }
+  el.classList.add('is-on');
+
+  const keep=new Set([1,pages,curPage-1,curPage,curPage+1]);
+  const list=[];
+  for(let p=1;p<=pages;p++){
+    if(keep.has(p)) list.push(p);
+    else if(list[list.length-1]!=='…') list.push('…');
+  }
+
+  el.innerHTML =
+    `<span class="pinfo">每页 ${PAGE_SIZE} 篇</span>` +
+    `<button data-p="${curPage-1}" ${curPage===1?'disabled':''}>上一页</button>` +
+    list.map(p=>p==='…'
+      ? `<span class="gap">…</span>`
+      : `<button data-p="${p}" class="${p===curPage?'on':''}">${p}</button>`).join('') +
+    `<button data-p="${curPage+1}" ${curPage===pages?'disabled':''}>下一页</button>` +
+    `<span class="pinfo" style="margin-left:6px">第 ${curPage} / ${pages} 页</span>`;
+
+  el.querySelectorAll('button[data-p]').forEach(b=>{
+    b.onclick=()=>{
+      const p=Number(b.dataset.p);
+      if(!p||p===curPage||p<1||p>pages) return;
+      curPage=p;
+      openSlug=null;
+      renderTable();
+      document.getElementById('pager').scrollIntoView({block:'nearest'});
+    };
+  });
+}
+
 function renderTable(){
   let rows=D.posts.filter(p=>{
     if(activeCat && p.cat!==activeCat) return false;
@@ -421,16 +473,30 @@ function renderTable(){
     return sortAsc?x-y:y-x;
   });
   const maxPV=Math.max(...D.posts.map(p=>p.pv))||1;
+
+  const total=rows.length;
+  const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+  curPage=Math.min(Math.max(curPage,1),pages);
+  const start=(curPage-1)*PAGE_SIZE;
+  const pageRows=rows.slice(start,start+PAGE_SIZE);
+
   document.getElementById('cnt-txt').textContent =
-    `${rows.length} 篇${activeCat?` · ${activeCat}`:''}${query?` · 「${query}」`:''}`;
+    `${total} 篇${activeCat?` · ${activeCat}`:''}${query?` · 「${query}」`:''}`;
+  renderPager(total,pages);
+
   const tb=document.getElementById('tbody');
-  if(!rows.length){ tb.innerHTML=`<tr><td colspan="9" class="empty">没有匹配的文章</td></tr>`; return; }
-  tb.innerHTML=rows.map((p,i)=>{
+  if(!rows.length){
+    tb.innerHTML=`<tr><td colspan="9" class="empty">没有匹配的文章</td></tr>`;
+    renderPager(0,0);
+    return;
+  }
+  tb.innerHTML=pageRows.map((p,i)=>{
+    const rank=start+i+1;
     const isOpen=openSlug===p.slug;
     const ratio=p.uv?p.pv/p.uv:0;
     const young=p.online<60;
     let html=`<tr class="r ${isOpen?'on':''}" data-slug="${p.slug}">
-      <td class="num" style="color:#b6bac2;font-size:12px">${i+1}</td>
+      <td class="num" style="color:#b6bac2;font-size:12px">${rank}</td>
       <td class="ti">
         <span class="t" title="${p.title.replace(/"/g,'&quot;')}">${p.title}</span>
       </td>
