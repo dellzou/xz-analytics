@@ -21,6 +21,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from itertools import combinations
 from pathlib import Path
 
 DATA_DIR = Path(os.environ.get(
@@ -155,19 +156,74 @@ def collect_numbers(obj, acc=None) -> set:
     return acc
 
 
+def _flatten_numbers(obj, out: set) -> None:
+    if isinstance(obj, dict):
+        for v in obj.values():
+            _flatten_numbers(v, out)
+    elif isinstance(obj, list):
+        for v in obj:
+            _flatten_numbers(v, out)
+    elif isinstance(obj, bool):
+        return
+    elif isinstance(obj, (int, float)):
+        out.add(round(float(obj), 1))
+
+
+def allowed_numbers(digest: dict) -> set:
+    """摘要里的原值，加上模型可以合法算出来的派生值。
+
+    模型写「合计 14038」「占 46.9%」「是前 30 天的 3.2 倍」这类，都是对已有
+    数字做加减除，不该算编造。所以除原值外还放行：
+      - 两两求和、求差、求百分比
+      - 台账字段（totals / cleaning / sources）里 2–4 项的求和
+    真正编出来的数字通常不会恰好落进这些组合里。
+    """
+    base = collect_numbers(digest)
+    allowed = set(base) | {float(x) for x in EXTRA_NUMBERS}
+    nums = sorted({round(float(v), 1) for v in base})
+
+    for i, a in enumerate(nums):
+        for b in nums[i:]:
+            allowed.add(round(a + b, 1))
+            if a > b:
+                allowed.add(round(a - b, 1))
+
+    for a in nums:
+        for b in nums:
+            if b:
+                allowed.add(round(a / b * 100, 1))
+
+    ledger = set()
+    for key in ("totals", "cleaning", "sources"):
+        if isinstance(digest.get(key), dict):
+            _flatten_numbers(digest[key], ledger)
+    ledger_nums = sorted(v for v in ledger if 0 < v < 1e7)
+    for r in (2, 3, 4):
+        for combo in combinations(ledger_nums, r):
+            allowed.add(round(sum(combo), 1))
+
+    return allowed
+
+
+def _hit(val: float, allowed: set) -> bool:
+    """命中即通过；大数允许 ±1 的取整误差。"""
+    if val in allowed:
+        return True
+    if val >= 10:
+        for d in (0.1, -0.1, 0.5, -0.5, 1, -1):
+            if round(val + d, 1) in allowed:
+                return True
+    return False
+
+
 def verify_numbers(summary: dict, digest: dict) -> list:
-    """返回模型用到、但摘要里找不到出处的数字。"""
-    allowed = collect_numbers(digest) | {float(x) for x in EXTRA_NUMBERS}
+    """返回模型用到、但摘要和合法派生值里都找不到出处的数字。"""
+    allowed = allowed_numbers(digest)
     text = json.dumps(summary, ensure_ascii=False)
     unknown = []
     for token in re.findall(r"\d+(?:\.\d+)?", text):
-        val = round(float(token), 1)
-        if val in allowed:
-            continue
-        # 允许 ±1 的取整误差
-        if any(abs(val - a) <= 1 for a in allowed if a >= 10):
-            continue
-        unknown.append(token)
+        if not _hit(round(float(token), 1), allowed):
+            unknown.append(token)
     return sorted(set(unknown))
 
 

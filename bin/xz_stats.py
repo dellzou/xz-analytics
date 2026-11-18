@@ -397,6 +397,8 @@ def main():
             "site_uv": len(site_ips),
             "posts_published": len(rows),
             "posts_with_traffic": len([r for r in rows if r["pv"] > 0]),
+            # 明确给出零流量篇数，避免模型自己拿总数去减
+            "posts_zero_pv": len([r for r in rows if r["pv"] == 0]),
         },
         "cleaning": {
             "raw_human_article_pv": human_article_pv,
