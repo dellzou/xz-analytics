@@ -125,6 +125,19 @@ td.r{text-align:right}
   font-size:13px;line-height:1.65;color:var(--tx2);
 }
 .ins li:last-child{border-bottom:0}
+.ins-src{font-size:11px;color:var(--tx3);padding:2px 8px;border-radius:10px;background:#f1f2f4}
+.ins-src.is-ai{color:var(--blue);background:#eef2ff}
+.ins-head{padding:14px 18px 4px;font-size:14.5px;font-weight:600;line-height:1.6;color:var(--tx)}
+.ins li.lv-risk .i{background:#fdecec;color:#c0392b}
+.ins li.lv-warn .i{background:#fdf3e3;color:#a8620a}
+.ins li.lv-info .i{background:#eef2ff;color:var(--blue)}
+.ins-ev{display:block;font-style:normal;font-size:11.5px;color:#9aa0ab;margin-top:4px}
+.ins-act{border-top:1px solid var(--line2);padding:13px 18px 15px}
+.ins-act h4{font-size:11.5px;color:var(--tx3);font-weight:550;margin-bottom:8px}
+.ins-act ul{list-style:none}
+.ins-act li{font-size:12.5px;color:var(--tx2);padding:3px 0 3px 16px;position:relative;line-height:1.6}
+.ins-act li::before{content:"→";position:absolute;left:0;color:var(--blue)}
+.ins-note{padding:8px 18px 12px;font-size:11px;color:#b45454}
 .ins li .i{
   flex:none;width:17px;height:17px;border-radius:50%;background:#eef2ff;color:var(--blue);
   font-size:10.5px;font-weight:650;display:grid;place-items:center;margin-top:2px;
@@ -202,8 +215,11 @@ footer code{background:#eceef1;padding:1px 5px;border-radius:3px;font-size:11px}
 </section>
 
 <section class="card">
-  <div class="shead" style="padding:15px 18px 0"><h2>这份数据说明了什么</h2></div>
-  <ul class="ins" id="ins"></ul>
+  <div class="shead" style="padding:15px 18px 0">
+    <h2>这份数据说明了什么</h2>
+    <span class="ins-src" id="ins-src"></span>
+  </div>
+  <div id="ins"></div>
 </section>
 
 <footer id="foot"></footer>
@@ -457,8 +473,39 @@ function renderTable(){
 }
 renderChips(); renderHead(); renderTable();
 
-/* 洞察 */
+/* 洞察：有 AI 总结就渲染 AI 的，否则回落到规则模板 */
 (function(){
+  const box = document.getElementById('ins');
+  const srcEl = document.getElementById('ins-src');
+  const ai = D.ai_summary;
+
+  if (ai && !ai.error && Array.isArray(ai.findings) && ai.findings.length) {
+    const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g,
+      c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    srcEl.textContent = 'AI · ' + (ai.model || '未标注模型');
+    srcEl.classList.add('is-ai');
+
+    let html = ai.headline ? `<div class="ins-head">${esc(ai.headline)}</div>` : '';
+    html += '<ul class="ins">' + ai.findings.map((f, i) => {
+      const lv = ['risk','warn','info'].indexOf(f.level) >= 0 ? f.level : 'info';
+      const ev = f.evidence ? `<em class="ins-ev">依据：${esc(f.evidence)}</em>` : '';
+      return `<li class="lv-${lv}"><span class="i">${i + 1}</span><span>${esc(f.text)}${ev}</span></li>`;
+    }).join('') + '</ul>';
+
+    if (Array.isArray(ai.actions) && ai.actions.length) {
+      html += `<div class="ins-act"><h4>可以做的</h4><ul>${
+        ai.actions.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>`;
+    }
+    const un = Array.isArray(ai.unverified_numbers) ? ai.unverified_numbers : [];
+    if (un.length) {
+      html += `<div class="ins-note">有 ${un.length} 个数字在原始数据里找不到出处，建议核对：${esc(un.join('、'))}</div>`;
+    }
+    box.innerHTML = html;
+    return;
+  }
+
+  srcEl.textContent = (ai && ai.error) ? '规则模板 · AI 调用失败' : '规则模板';
+
   const cats=[...D.categories].sort((a,b)=>b.avg_pv-a.avg_pv);
   const best=cats[0], worst=cats[cats.length-1];
   const top3=D.posts.slice(0,3);
@@ -476,14 +523,14 @@ renderChips(); renderHead(); renderTable();
   const dy=(D.categories.find(c=>c.cat==='个人动态')||{recent30:0,pv:1});
   const home=(M.kinds&&M.kinds.home)||0;
 
-  document.getElementById('ins').innerHTML=[
-    `<b>${best.cat}</b> 是最能打的内容类型：${best.n} 篇贡献 ${fmt(best.pv)} 次阅读，篇均 <b>${best.avg_pv.toFixed(0)}</b>，是 <b>${worst.cat}</b>（篇均 ${worst.avg_pv.toFixed(0)}）的 <b>${(best.avg_pv/worst.avg_pv).toFixed(1)} 倍</b>。拆机型内容单篇成本高，但带来的读者最多。`,
+  box.innerHTML = '<ul class="ins">' + [
+    `<b>${best.cat}</b> 是最能打的内容类型：${best.n} 篇贡献 ${fmt(best.pv)} 次阅读，篇均 <b>${best.avg_pv.toFixed(0)}</b>，是 <b>${worst.cat}</b>（篇均 ${worst.avg_pv.toFixed(0)}）的 <b>${(best.avg_pv/worst.avg_pv).toFixed(1)} 倍</b>。`,
     `流量高度集中：前 3 篇吃掉全部阅读的 <b>${pct(top3pv,M.post_pv).toFixed(0)}%</b>——${top3.map(p=>`《${short(p.title)}》`).join('、')}。头部文章一旦排名下滑，整站数据会立刻塌，需要培养第二梯队。`,
     `外部来源里 <b>Bing 占了 ${pct(bing,ext).toFixed(0)}%</b>（${fmt(bing)} 次），Google ${fmt(get('Google'))} 次；<b>百度只有 ${baidu} 次</b>，相当于没有。国内读者在百度搜不到你，这是目前最大的流量缺口。`,
     `有 <b>${dead.length}</b> 篇发布超过 60 天、累计阅读仍不足 10 次。这批内容占用发布精力却不带访客，适合合并、重写或做内链导流。`,
     `近 30 天还在持续进人的是 <b>${cats30[0].cat}</b>（${cats30[0].recent30} 次）。<b>个人动态</b>则是另一回事：累计 ${fmt(dy.pv)} 次里，近 30 天占了 ${dy.recent30} 次，流量几乎都集中在刚发布那几天，老文很少再被翻出来。`,
     `读者 <b>${pct(win,M.post_pv).toFixed(0)}%</b> 来自 Windows、<b>${pct(mobile,M.post_pv).toFixed(0)}%</b> 来自手机。首页另有 <b>${fmt(home)}</b> 次浏览，与文章阅读量 ${fmt(M.post_pv)} 次基本持平——首页是主要落地页，从首页进到内文的引导值得再优化。`
-  ].map((t,i)=>`<li><span class="i">${i+1}</span><span>${t}</span></li>`).join('');
+  ].map((t,i)=>`<li><span class="i">${i+1}</span><span>${t}</span></li>`).join('') + '</ul>';
 })();
 
 /* 脚注 */

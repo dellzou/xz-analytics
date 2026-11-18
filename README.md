@@ -60,6 +60,60 @@ crontab -e
 30 3 * * * /path/to/wp-content/plugins/xz-analytics/bin/refresh.sh --quiet >> /var/log/xz-analytics.log 2>&1
 ```
 
+## AI 总结（可选）
+
+面板底部「这份数据说明了什么」默认由规则模板生成。配置大模型后，可以改由模型根据统计摘要写结论，**规则模板保留为降级兜底**——没配 key、调用失败、返回不是合法 JSON，都会自动回落。
+
+### 开启
+
+把 `bin/ai-config.example.json` 复制到 `wp-content/uploads/xz-analytics/ai-config.json`，填上 key 并把 `enabled` 改成 `true`：
+
+```json
+{
+  "enabled": true,
+  "base_url": "https://api.deepseek.com/v1",
+  "model": "deepseek-chat",
+  "api_key": "sk-...",
+  "temperature": 0.3,
+  "max_tokens": 900,
+  "timeout": 40
+}
+```
+
+只要服务商兼容 OpenAI 的 `/chat/completions` 协议就能用，常见配置：
+
+| 服务商 | base_url | 模型示例 |
+|---|---|---|
+| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
+| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
+| 智谱 | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
+| Kimi | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
+
+填完手动跑一次生成：
+
+```bash
+python3 bin/ai_summary.py
+```
+
+之后每天数据刷新时会自动重算。想先看提示词长什么样，加 `--dry-run`；想调前端样式不想花钱，用 `--mock` 写一份假数据。
+
+### 它拿到的是什么
+
+不是原始日志，也不是完整面板数据，而是 `stats.json` 里的 `digest` 字段——约 1.5K token：总览、六类内容表现、TOP15 文章、近 30 天日序列的异常点、来源结构、设备构成、新文与零流量文清单。
+
+**异常点（暴涨日/断崖日/新文强势）在 Python 里算好**，模型只负责解读，不负责计算。这是刻意的：让模型做算术，它一定会编。
+
+### 输出与校验
+
+模型返回结构化 JSON（`headline` / `findings[]` / `actions[]`），前端按风险等级上色渲染，每条结论都带 `evidence` 数字。
+
+生成后会做一次数字校验：把结论里出现的数字与摘要里的数值比对，对不上的列进 `unverified_numbers`，面板底部会提示「有 N 个数字在原始数据里找不到出处」。不直接丢弃，是怕误杀四舍五入和阈值（比如「60 天」）造成的正常差异。
+
+### 成本
+
+一次约 2K 输入 + 600 输出。DeepSeek 大概 0.002 元/次，每天一次，一个月不到 1 毛。
+
 ## 配置
 
 `bin/refresh.sh` 会自动从插件位置推断 WordPress 根目录，无需配置。分析脚本的路径可以用环境变量覆盖：
@@ -84,7 +138,9 @@ xz-analytics/
 │   └── admin.js            # iframe 高度自适应
 └── bin/
     ├── refresh.sh          # 导出文章元数据 + 跑分析，cron 入口
-    └── xz_stats.py         # 日志分析与四层清洗
+    ├── xz_stats.py         # 日志分析与四层清洗，产出 digest
+    ├── ai_summary.py       # 可选：把 digest 交给大模型写成结论
+    └── ai-config.example.json
 ```
 
 面板本身是零依赖的单文件 HTML（纯 SVG 画图，不加载任何 CDN），所以离线也能开，也不受后台样式干扰。

@@ -79,6 +79,13 @@ python3 "$SCRIPT_DIR/xz_stats.py" \
 
 [ -s "$STATS_FILE" ] || fail "没有生成 $STATS_FILE"
 
+# ---------- 3. 可选：让大模型写一段结论 ----------
+# 失败不影响主数据，面板会自动回落到规则文案
+if [ -f "$SCRIPT_DIR/ai_summary.py" ]; then
+    python3 "$SCRIPT_DIR/ai_summary.py" \
+        >> "$DATA_DIR/last-run.json" 2>> "$DATA_DIR/last-run.err" || true
+fi
+
 # 让 web 进程读得到
 chmod 644 "$STATS_FILE" 2>/dev/null || true
 chown www:www "$STATS_FILE" 2>/dev/null || true

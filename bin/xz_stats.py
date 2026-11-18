@@ -343,6 +343,106 @@ def main():
             "recent30": sum(r["recent30"] for r in sub),
         })
 
+    # ---- 给 AI 看的摘要：只保留判断需要的聚合值和异常点，控制体积 ----
+    daily_post_total = Counter()
+    for _dd in daily_post.values():
+        for _d, _n in _dd.items():
+            daily_post_total[_d] += _n
+
+    last30 = [(dt_today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(29, -1, -1)]
+    prev30_start = (dt_today - timedelta(days=59)).strftime("%Y-%m-%d")
+    prev30_end = (dt_today - timedelta(days=30)).strftime("%Y-%m-%d")
+    series30 = [{"d": d, "pv": daily_post_total.get(d, 0)} for d in last30]
+    sum30 = sum(x["pv"] for x in series30)
+    sum_prev30 = sum(n for d, n in daily_post_total.items() if prev30_start <= d <= prev30_end)
+
+    _vals = sorted(x["pv"] for x in series30 if x["pv"] > 0)
+    med30 = _vals[len(_vals) // 2] if _vals else 0
+    anomalies = []
+    if med30 >= 20:
+        for x in series30:
+            if x["pv"] >= med30 * 2.5 and x["pv"] >= 60:
+                anomalies.append({"type": "spike", "date": x["d"], "pv": x["pv"],
+                                  "vs_median": round(x["pv"] / med30, 1)})
+            elif x["pv"] <= med30 * 0.35:
+                anomalies.append({"type": "drop", "date": x["d"], "pv": x["pv"],
+                                  "vs_median": round(x["pv"] / med30, 1)})
+        anomalies = anomalies[:6]
+
+    new14 = (dt_today - timedelta(days=14)).strftime("%Y-%m-%d")
+    fresh = [{"title": r["title"], "cat": r["cat"], "date": r["date"],
+              "pv": r["pv"], "uv": r["uv"]}
+             for r in rows if r["date"] >= new14 and r["pv"] >= 60]
+    fresh.sort(key=lambda x: -x["pv"])
+
+    dead_posts = [{"title": r["title"], "cat": r["cat"], "date": r["date"], "pv": r["pv"]}
+                  for r in rows if r["pv"] < 10 and r["online"] > 60]
+
+    refd = dict(ref_c)
+    direct = refd.get("直接访问", 0)
+    inner = refd.get("站内跳转", 0)
+    external = max(sum(refd.values()) - direct - inner, 1)
+    top3pv = sum(r["pv"] for r in rows[:3])
+
+    digest = {
+        "period": {
+            "from": months[0] if months else "",
+            "to": months[-1] if months else "",
+            "days": len(daily_all),
+            "last_data_day": today,
+        },
+        "totals": {
+            "post_pv": sum(pv.values()),
+            "total_pv": sum(kind_pv.values()),
+            "site_uv": len(site_ips),
+            "posts_published": len(rows),
+            "posts_with_traffic": len([r for r in rows if r["pv"] > 0]),
+        },
+        "cleaning": {
+            "raw_human_article_pv": human_article_pv,
+            "removed_scanner_ip": skipped.get("dirty_ip", 0),
+            "removed_burst_day": removed_burst,
+            "removed_rate_cap": capped,
+        },
+        "trend": {
+            "last30_pv": sum30,
+            "prev30_pv": sum_prev30,
+            "mom_change_pct": round((sum30 - sum_prev30) / sum_prev30 * 100, 1) if sum_prev30 else None,
+            "daily_median_30": med30,
+            "monthly": [{"m": m, "pv": monthly_pv[m]} for m in months],
+            "anomalies": anomalies,
+        },
+        "concentration": {
+            "top3_share_pct": round(top3pv / max(sum(pv.values()), 1) * 100, 1),
+            "top3": [{"title": r["title"], "pv": r["pv"]} for r in rows[:3]],
+        },
+        "categories": [
+            {"cat": c["cat"], "posts": c["n"], "pv": c["pv"], "avg_pv": c["avg_pv"],
+             "median_pv": c["median_pv"], "recent30": c["recent30"]}
+            for c in cat_rows
+        ],
+        "top_posts": [
+            {"title": r["title"], "cat": r["cat"], "date": r["date"], "pv": r["pv"],
+             "uv": r["uv"], "first30": r["first30"], "recent30": r["recent30"],
+             "online_days": r["online"]}
+            for r in rows[:15]
+        ],
+        "recent_new_posts": fresh[:8],
+        "dead_posts": dead_posts[:8],
+        "dead_posts_count": len(dead_posts),
+        "sources": {
+            "direct": direct,
+            "internal": inner,
+            "bing": refd.get("Bing", 0),
+            "google": refd.get("Google", 0),
+            "baidu": refd.get("百度", 0),
+            "other_external": max(external - refd.get("Bing", 0) - refd.get("Google", 0)
+                                  - refd.get("百度", 0), 0),
+            "bing_share_of_external_pct": round(refd.get("Bing", 0) / external * 100, 1),
+        },
+        "devices": dict(dev_c),
+    }
+
     result = {
         "meta": {
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -366,6 +466,7 @@ def main():
             "days": len(daily_all),
             "range": [months[0] if months else "", months[-1] if months else ""],
         },
+        "digest": digest,
         "burst": burst_detail,
         "posts": rows,
         "months": [{"m": m, "pv": monthly_pv[m], "uv": len(monthly_uv[m]),
