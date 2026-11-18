@@ -11,8 +11,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$(dirname "$SCRIPT_DIR")"
 WP_ROOT="$(cd "$PLUGIN_DIR/../../.." && pwd)"
-DATA_DIR="$WP_ROOT/wp-content/uploads/xz-analytics"
-STATS_FILE="$DATA_DIR/stats.json"
 QUIET=0
 [ "${1:-}" = "--quiet" ] && QUIET=1
 
@@ -27,7 +25,16 @@ fail() { echo "[xz-analytics] 失败：$*" >&2; exit 1; }
 command -v wp      >/dev/null 2>&1 || fail "找不到 wp-cli（当前 PATH=$PATH）"
 command -v python3 >/dev/null 2>&1 || fail "找不到 python3"
 
+# 数据目录以 wp-config.php 的 XZ_ANALYTICS_DATA_DIR 为准，跟插件读同一处；
+# 没定义时退回 uploads（那条路径公网可下载，仅作兼容）。
+DATA_DIR="$(wp eval 'echo defined("XZ_ANALYTICS_DATA_DIR") ? rtrim(XZ_ANALYTICS_DATA_DIR, "/") : "";' \
+    --allow-root --path="$WP_ROOT" 2>/dev/null || true)"
+[ -n "$DATA_DIR" ] || DATA_DIR="$WP_ROOT/wp-content/uploads/xz-analytics"
+STATS_FILE="$DATA_DIR/stats.json"
 mkdir -p "$DATA_DIR"
+case "$DATA_DIR" in
+    "$WP_ROOT"/*) echo "[xz-analytics] 警告：数据目录在 web 根内，$DATA_DIR 可被公网下载" >&2 ;;
+esac
 
 # ---------- 1. 导出文章与页面元数据 ----------
 log "→ 导出文章元数据"
@@ -82,12 +89,13 @@ python3 "$SCRIPT_DIR/xz_stats.py" \
 # ---------- 3. 可选：让大模型写一段结论 ----------
 # 失败不影响主数据，面板会自动回落到规则文案
 if [ -f "$SCRIPT_DIR/ai_summary.py" ]; then
+    XZ_DATA_DIR="$DATA_DIR" XZ_STATS_OUT="$STATS_FILE" \
     python3 "$SCRIPT_DIR/ai_summary.py" \
         >> "$DATA_DIR/last-run.json" 2>> "$DATA_DIR/last-run.err" || true
 fi
 
 # 让 web 进程读得到
-chmod 644 "$STATS_FILE" 2>/dev/null || true
+chmod 640 "$STATS_FILE" 2>/dev/null || true
 chown www:www "$STATS_FILE" 2>/dev/null || true
 
 log "✓ 完成：$STATS_FILE（$(du -h "$STATS_FILE" | cut -f1)）"

@@ -23,12 +23,45 @@ define('XZ_ANALYTICS_SLUG', 'xz-analytics');
 define('XZ_ANALYTICS_CAP', 'edit_posts');
 
 /**
- * 数据文件放在 uploads 下，避免插件升级时被覆盖，也方便运维直接替换。
+ * 数据目录：存放 stats.json、文章元数据与 AI 配置。
+ *
+ * 优先用 wp-config.php 里的 XZ_ANALYTICS_DATA_DIR；
+ * 没定义时默认取 WordPress 根目录的上一级（web 根之外）。
+ * 两处都不可写才退回 uploads —— 那条路径公网可下载，后台会给出告警。
  */
+function xz_analytics_data_dir(): string
+{
+    static $dir = null;
+    if ($dir !== null) {
+        return $dir;
+    }
+
+    if (defined('XZ_ANALYTICS_DATA_DIR') && XZ_ANALYTICS_DATA_DIR) {
+        return $dir = rtrim(XZ_ANALYTICS_DATA_DIR, '/\\');
+    }
+
+    // ABSPATH 带结尾斜杠，dirname 得到站点根目录的上一级
+    $outside = rtrim(dirname(ABSPATH), '/\\') . '/xz-analytics-data';
+    $probe   = is_dir($outside) ? $outside : dirname($outside);
+    if (is_writable($probe)) {
+        return $dir = $outside;
+    }
+
+    $uploads = wp_upload_dir();
+    return $dir = trailingslashit($uploads['basedir']) . 'xz-analytics';
+}
+
+/**
+ * 数据目录是否落在 web 根目录内（可被公网直接下载）。
+ */
+function xz_analytics_data_dir_is_public(): bool
+{
+    return strpos(trailingslashit(xz_analytics_data_dir()), ABSPATH) === 0;
+}
+
 function xz_analytics_data_file(): string
 {
-    $uploads = wp_upload_dir();
-    return trailingslashit($uploads['basedir']) . 'xz-analytics/stats.json';
+    return xz_analytics_data_dir() . '/stats.json';
 }
 
 /**
@@ -90,9 +123,18 @@ function xz_analytics_dashboard_widget()
     $fresh = xz_analytics_freshness();
 
     if (!$data) {
+        $file = xz_analytics_data_file();
         echo '<div class="xz-empty">';
-        echo '<p>还没有统计数据。请在服务器上运行一次分析脚本生成：</p>';
-        echo '<pre>cd ' . esc_html(ABSPATH) . 'wp-content/plugins/xz-analytics/bin &amp;&amp; python3 xz_stats.py</pre>';
+        if (file_exists($file) && !is_readable($file)) {
+            // 文件在、但 PHP 读不到：多半是 open_basedir（宝塔「防跨站」）把它挡在外面
+            echo '<p>数据文件存在，但 PHP 没有读取权限：</p>';
+            echo '<pre>' . esc_html($file) . '</pre>';
+            echo '<p>常见原因是 PHP 的 <code>open_basedir</code> 没包含该目录。'
+                . '站点根目录的 <code>.user.ini</code> 里把它加进 <code>open_basedir</code> 后重载 php-fpm 即可。</p>';
+        } else {
+            echo '<p>还没有统计数据。请在服务器上运行一次分析脚本生成：</p>';
+            echo '<pre>cd ' . esc_html(ABSPATH) . 'wp-content/plugins/xz-analytics/bin &amp;&amp; ./refresh.sh</pre>';
+        }
         echo '</div>';
         return;
     }
@@ -322,16 +364,32 @@ add_action('wp_ajax_xz_analytics_panel', 'xz_analytics_ajax_panel');
  */
 function xz_analytics_activate()
 {
-    $uploads = wp_upload_dir();
-    $dir = trailingslashit($uploads['basedir']) . 'xz-analytics';
-    if (!file_exists($dir)) {
+    $dir = xz_analytics_data_dir();
+    if (!is_dir($dir)) {
         wp_mkdir_p($dir);
+        @chmod($dir, 0750);
     }
-    if (!file_exists($dir . '/index.php')) {
+    // 目录若在 web 根内，补一个 index.php 挡目录列表
+    if (strpos(trailingslashit($dir), ABSPATH) === 0 && !file_exists($dir . '/index.php')) {
         file_put_contents($dir . '/index.php', "<?php\n// Silence is golden.\n");
     }
 }
 register_activation_hook(__FILE__, 'xz_analytics_activate');
+
+/**
+ * 数据目录落在 web 根内时给出告警 —— 那意味着流量数据和 AI 的 api key
+ * 可能被任何人直接下载。
+ */
+add_action('admin_notices', function () {
+    if (!current_user_can('manage_options') || !xz_analytics_data_dir_is_public()) {
+        return;
+    }
+    echo '<div class="notice notice-warning"><p><strong>XZ 内容数据</strong>：数据目录 <code>'
+        . esc_html(xz_analytics_data_dir())
+        . '</code> 位于 web 根目录内，统计数据和 AI 配置可能被公网直接下载。'
+        . '请在 <code>wp-config.php</code> 里设置 <code>XZ_ANALYTICS_DATA_DIR</code> '
+        . '指向 web 根之外的可写目录。</p></div>';
+});
 
 /**
  * 插件列表里加一行「上次数据生成时间」，方便判断是不是该刷新了。

@@ -60,6 +60,47 @@ crontab -e
 30 3 * * * /path/to/wp-content/plugins/xz-analytics/bin/refresh.sh --quiet >> /var/log/xz-analytics.log 2>&1
 ```
 
+## 数据目录与安全
+
+统计数据和 AI 配置**不放 web 可访问目录**。默认位置是 WordPress 根目录的上一级
+（`dirname(ABSPATH)/xz-analytics-data`），可用 `wp-config.php` 覆盖：
+
+```php
+define('XZ_ANALYTICS_DATA_DIR', '/www/xz-analytics-data');
+```
+
+目录里放 `stats.json`、`posts.json`、`pages.json`、`ai-config.json`，建议权限
+`750`、属主为 php-fpm 运行用户（多数是 `www`）。
+
+**若数据目录落在 web 根内**（例如可写权限不足时回退到 `uploads/xz-analytics`），
+插件会在后台顶部给出黄色告警——那种情况下任何人都能直接下载你的流量数据和 API key。
+
+**宝塔用户注意**：站点「防跨站攻击」会在根目录生成 `.user.ini`：
+
+```ini
+open_basedir=/path/to/wordpress/:/tmp/
+```
+
+数据目录不在这个列表里，PHP 就读不到，面板会显示「PHP 没有读取权限」。需要补上：
+
+```ini
+open_basedir=/path/to/wordpress/:/tmp/:/www/xz-analytics-data/
+```
+
+该文件默认带 `chattr +i` 不可修改属性，改前要 `chattr -i`，改完记得 `chattr +i` 恢复，
+并 `systemctl reload php-fpm-83` 让配置生效。
+
+## 安全自查清单
+
+改动本插件前先过一遍：
+
+- [ ] 新增的文件会不会落在 web 可访问路径下？数据、日志、配置一律放 web 根之外
+- [ ] 涉及凭据（API key）的地方，是否可能被公网下载、写进 git、或写进 HTML 输出？
+- [ ] 后台新增的入口是否做了 `current_user_can()` 与 nonce 校验？
+- [ ] 外部输入（URL 参数、POST 内容）是否转义后再输出？
+- [ ] 调外部 API 的代码是否设置了超时，失败是否降级而不是白屏？
+- [ ] 改了服务器配置（nginx/php）是否先备份，是否记录回滚方式？
+
 ## AI 总结（可选）
 
 面板底部「这份数据说明了什么」默认由规则模板生成。配置大模型后，可以改由模型根据统计摘要写结论，**规则模板保留为降级兜底**——没配 key、调用失败、返回不是合法 JSON，都会自动回落。
