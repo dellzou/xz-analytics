@@ -16,11 +16,15 @@ STATS_FILE="$DATA_DIR/stats.json"
 QUIET=0
 [ "${1:-}" = "--quiet" ] && QUIET=1
 
+# cron 的 PATH 通常只有 /sbin:/bin:/usr/sbin:/usr/bin，
+# 而 wp-cli 多数装在 /usr/local/bin，不补这一行定时任务会直接失败。
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
+
 log()  { [ "$QUIET" -eq 1 ] || echo "$@"; }
 fail() { echo "[xz-analytics] 失败：$*" >&2; exit 1; }
 
 [ -d "$WP_ROOT/wp-content" ] || fail "找不到 WordPress 根目录：$WP_ROOT"
-command -v wp      >/dev/null 2>&1 || fail "找不到 wp-cli"
+command -v wp      >/dev/null 2>&1 || fail "找不到 wp-cli（当前 PATH=$PATH）"
 command -v python3 >/dev/null 2>&1 || fail "找不到 python3"
 
 mkdir -p "$DATA_DIR"
