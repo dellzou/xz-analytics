@@ -18,6 +18,8 @@
 - 近 12 个月迷你走势
 - 「查看完整面板」进入全量排行
 
+**后台 → 设置 → XZ AI 总结** 配置大模型（可选）。
+
 **后台 → 仪表盘 → 内容数据** 是完整面板：类型表现、文章排行（可筛选、可排序、每页 20 篇分页、点开看单篇月度曲线）、流量来源、设备构成、以及这份数据是怎么算出来的。
 
 ## 为什么数字比你想的少
@@ -107,37 +109,39 @@ open_basedir=/path/to/wordpress/:/tmp/:/www/xz-analytics-data/
 
 ### 开启
 
-把 `bin/ai-config.example.json` 复制到 `wp-content/uploads/xz-analytics/ai-config.json`，填上 key 并把 `enabled` 改成 `true`：
+后台 **设置 → XZ AI 总结**，选服务商、确认 base_url 与模型名、填 API Key，点「测试连接」验证，再勾选启用并保存。
 
-```json
-{
-  "enabled": true,
-  "base_url": "https://api.deepseek.com/v1",
-  "model": "deepseek-chat",
-  "api_key": "sk-...",
-  "temperature": 0.3,
-  "max_tokens": 900,
-  "timeout": 40
-}
-```
-
-只要服务商兼容 OpenAI 的 `/chat/completions` 协议就能用，常见配置：
+支持任何**兼容 OpenAI 接口格式**的 API。常见可直接接入的：
 
 | 服务商 | base_url | 模型示例 |
 |---|---|---|
 | DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
-| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
-| 智谱 | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
+| 通义千问（阿里云百炼） | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
+| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-plus` |
 | Kimi | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
+| 豆包（火山方舟） | `https://ark.cn-beijing.volces.com/api/v3` | 控制台的接入点 ID |
+| 文心一言（百度千帆） | `https://qianfan.baidubce.com/v2` | `ernie-4.0-8k` |
+| 腾讯混元 | `https://api.hunyuan.cloud.tencent.com/v1` | `hunyuan-turbos-latest` |
+| MiniMax | `https://api.minimax.cn/v1` | `MiniMax-Text-01` |
+| 硅基流动 | `https://api.siliconflow.cn/v1` | `deepseek-ai/DeepSeek-V3` |
 | OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
+| 本地 Ollama / vLLM | `http://127.0.0.1:11434/v1` | `qwen2.5:7b` |
 
-填完手动跑一次生成：
+模型名更新很快，以上只是常见值，以厂商控制台的模型列表为准，界面上可以直接改写。
+
+配置存在 `ai-config.json`（web 根之外，权限 0600），后台只显示掩码，不回显明文。
+
+### 什么时候生成
+
+跟着数据刷新走：每天 3:30 重新分析日志后生成一次，结果写进 `stats.json`，面板打开时直接读取。同一份数据只算一次，措辞稳定、成本固定，也不依赖浏览器是否还开着。
+
+后台不提供「立即生成」按钮，原因是服务器出于安全考虑禁用了 PHP 执行外部命令的能力（`exec`、`shell_exec`、`proc_open`），这是防止恶意代码执行的常规加固手段。要立刻重算，SSH 上跑一次：
 
 ```bash
-python3 bin/ai_summary.py
+./bin/refresh.sh
 ```
 
-之后每天数据刷新时会自动重算。想先看提示词长什么样，加 `--dry-run`；想调前端样式不想花钱，用 `--mock` 写一份假数据。
+调试用：`python3 bin/ai_summary.py --dry-run` 只看提示词；`--mock` 写一份假数据，不花钱也能调前端样式。
 
 ### 它拿到的是什么
 

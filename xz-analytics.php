@@ -3,7 +3,7 @@
  * Plugin Name: XZ 内容数据面板
  * Plugin URI:  https://github.com/dellzou/xz-analytics
  * Description: 从 Nginx 访问日志统计文章真实阅读量，在仪表盘展示哪些文章、哪些类型真正有人在读。
- * Version:     1.0.1
+ * Version:     1.1.0
  * Author:      ZouNing
  * Author URI:  https://xiaozou123.cn
  * License:     MIT
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('XZ_ANALYTICS_VERSION', '1.0.1');
+define('XZ_ANALYTICS_VERSION', '1.1.0');
 define('XZ_ANALYTICS_FILE', __FILE__);
 define('XZ_ANALYTICS_DIR', plugin_dir_path(__FILE__));
 define('XZ_ANALYTICS_URL', plugin_dir_url(__FILE__));
@@ -317,6 +317,8 @@ function xz_analytics_render_page()
     ?>
     <div class="wrap xz-panel-wrap">
         <h1 class="wp-heading-inline">内容数据面板</h1>
+        <a href="<?php echo esc_url(admin_url('options-general.php?page=xz-ai-settings')); ?>"
+           class="page-title-action">AI 总结设置</a>
         <span class="xz-badge <?php echo $fresh['stale'] ? 'is-stale' : ''; ?>"><?php echo esc_html($fresh['text']); ?></span>
         <hr class="wp-header-end">
         <iframe id="xz-analytics-frame" class="xz-frame" src="<?php echo esc_url($frame); ?>"
@@ -394,6 +396,8 @@ add_action('admin_notices', function () {
 /**
  * 插件列表里加一行「上次数据生成时间」，方便判断是不是该刷新了。
  */
+require_once XZ_ANALYTICS_DIR . 'includes/settings.php';
+
 add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links) {
     $fresh = xz_analytics_freshness();
     $links[] = '<span style="color:#646970">' . esc_html($fresh['text']) . '</span>';
